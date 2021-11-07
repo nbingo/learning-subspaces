@@ -1,4 +1,3 @@
-#
 # For licensing see accompanying LICENSE file.
 # Copyright (C) 2020 Apple Inc. All Rights Reserved.
 #
@@ -6,6 +5,7 @@
 import os
 import pathlib
 import random
+import pickle
 
 import numpy as np
 import torch
@@ -82,9 +82,18 @@ def main():
                     for c in checkpoint["state_dicts"]
                 ]
                 n = 0
-                for pretrained_dict in pretrained_dicts:
-                    print(num_models_filled)
+                for idx, pretrained_dict in enumerate(pretrained_dicts):
+                    print(f'On dict #{idx}')
+                    # if num_models_filled >= len(models):
+                    #     print(f'Filled all models with {len(pretrained_dicts) - num_models_filled} pretrained dicts left over')
+                    #     break
+                    print(f'num_models_filled:{num_models_filled}\nlen(models):{len(models)}\n')
                     model_dict = models[num_models_filled].state_dict()
+                    # print(f'model - pretrained dict:\n{model_dict.keys() - pretrained_dict.keys()}\npretrained dict - model:\n{pretrained_dict.keys() - model_dict.keys()}\nModel dict:\n{model_dict.keys()}')
+                    # need to duplicate keys because going from single model to subpsace model
+                    if args.duplicate_state_dict:
+                        for k in model_dict.keys() - pretrained_dict.keys():
+                            pretrained_dict[k] = pretrained_dict[k[:-1]].clone()
                     pretrained_dict = {
                         k: v
                         for k, v in pretrained_dict.items()
@@ -106,13 +115,14 @@ def main():
     # Put models on the GPU.
     models = [utils.set_gpu(m) for m in models]
 
-    # Get training loss.
-    if args.label_smoothing is None:
-        criterion = nn.CrossEntropyLoss()
+    # Get training loss if one isn't defined already
+    if args.criterion is not None:
+        criterion = args.criterion
+    elif args.label_smoothing is None:
+        criterion = nn.CrossEntropyLoss().to(args.device)
     else:
         print("adding label smoothing!")
-        criterion = LabelSmoothing(smoothing=args.label_smoothing)
-    criterion = criterion.to(args.device)
+        criterion = LabelSmoothing(smoothing=args.label_smoothing).to(args.device)
 
     if args.save:
         writer = SummaryWriter(log_dir=run_base_dir)
@@ -230,6 +240,10 @@ def main():
 
     # Save results.
     if args.save or args.save_data:
+        # also separately save metrics as pickle
+        metrics_dir = pathlib.Path(args.log_dir) / f"{args.name}_metrics.pkl"
+        with open(metrics_dir, 'wb') as metrics_file:
+            pickle.dump(metrics, metrics_file)
         utils.write_result_to_csv(
             name=args.name,
             curr_acc1=curr_acc1,

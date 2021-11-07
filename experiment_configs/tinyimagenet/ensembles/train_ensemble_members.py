@@ -15,7 +15,7 @@ if __name__ == "__main__":
     for seed in range(3):
         args.seed = seed
         args.label_noise = 0.0
-
+        args.device = 'cpu'
         args.workers = 8
         args.output_size = 200
         args.set = "TinyImageNet"
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         args.save_iters = []
 
         # TODO: change these paths -- this is an example.
-        args.data = "~/data"
+        args.data = "/lfs/local/0/nomir/learning-subspaces/data"
         args.log_dir = (
             "learning-subspaces-results/tinyimagenet/train-ensemble-members"
         )
