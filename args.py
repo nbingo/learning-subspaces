@@ -3,6 +3,8 @@
 # Copyright (C) 2020 Apple Inc. All Rights Reserved.
 #
 import argparse
+from typing import Callable
+import torch.nn as nn
 
 args = None
 
@@ -232,6 +234,18 @@ def parse_arguments():
     )
     parser.add_argument(
         "--train-update-bn", action="store_true", default=False,
+    )
+    parser.add_argument(
+        "--criterion", 
+        type=Callable,
+        default=nn.CrossEntropyLoss(),
+        help="The loss criterion used for training. Default is Cross Entropy."
+    )
+    parser.add_argument(
+        "--duplicate_state_dict",
+        type=bool,
+        default=False,
+        help='Whether to attempt to duplicate keys from a single model to a subspace model. Just removes last character off of a key name (e.g., blocks.6.bn1.bias1 to blocks.6.bn1.bias)'
     )
 
     args = parser.parse_args()
