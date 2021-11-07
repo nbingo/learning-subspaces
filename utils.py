@@ -157,15 +157,26 @@ def get_optimizer(args, model):
     if args.optimizer == "sgd":
 
         parameters = list(model.named_parameters())
-        parameters_to_opimizer = [v for n, v in parameters if v.requires_grad]
-        if len(parameters_to_opimizer) == 0:
+        parameters_to_optimizer = [v for n, v in parameters if v.requires_grad]
+        if len(parameters_to_optimizer) == 0:
             return None
         optimizer = torch.optim.SGD(
-            parameters_to_opimizer,
+            parameters_to_optimizer,
             args.lr,
             momentum=args.momentum,
             weight_decay=args.wd,
             nesterov=False,
+        )
+    elif args.optimizer == 'AdamW':
+        parameters = list(model.named_parameters())
+        parameters_to_optimizer = [v for n, v in parameters if v.requires_grad]
+        if len(parameters_to_optimizer) == 0:
+            return None
+        optimizer = torch.optim.AdamW(
+            params=parameters_to_optimizer,
+            lr=args.lr,
+            weight_decay=args.wd,
+            amsgrad=False
         )
     else:
         print("Cant find opt.")
