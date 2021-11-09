@@ -1,6 +1,7 @@
 import torch
 from typing import Type, Optional, Union
 import torch.nn as nn
+import numpy as np
 
 def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] = 2, verbose: Optional[bool] = False):
     class subspace_model_class(model_class):
@@ -8,10 +9,13 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
             super().__init__(*args, **kwargs)
             self.verbose = verbose
             # These will be the vertices of our n-simplex
+            self.register_buffer('num_base_parameters', torch.Tensor([len(list(self.parameters()))]))
             self.register_buffer('num_vertices', torch.Tensor([num_vertices]))
             # Have to register all of these as parameters (not registers) so that they're copied to the correct device
             # and so that they get backpropagated automatically
-            self.parametrization_points = [nn.ParameterList([nn.Parameter(p.clone()) for _ in range(num_vertices)]) for p in self.parameters()]
+            # Try putting into a list and then flattening and then ParameterList?
+            # If all else fails just register_parameter all of them even if ugly
+            self.parametrization_points = nn.ParameterList([nn.Parameter(p.clone()) for p in self.parameters() for _ in range(num_vertices)])
             self.register_buffer('alpha', torch.ones(num_vertices) / num_vertices)
 
         def set_alpha(self, alpha: torch.Tensor):
@@ -33,7 +37,12 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
             if self.verbose:
                 print('Setting parameters from subspace parametrization...')
             for i, p in enumerate(self.parameters()):
-                to_stack = [self.parametrization_points[i][j] * self.alpha[j] for j in range(int(self.num_vertices))]
+                if i >= self.num_base_parameters:
+                    break
+                to_stack = [
+                    self.parametrization_points[np.ravel_multi_index([i, j], (int(self.num_base_parameters), int(self.num_vertices)))] * self.alpha[j] 
+                    for j in range(int(self.num_vertices))
+                ]
                 p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
             if self.verbose:
                 print('Done setting parameters!')
