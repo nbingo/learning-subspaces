@@ -11,6 +11,7 @@ from args import args as pargs
 
 from .builder import Builder
 
+from subspace_wrapper import to_subspace_class
 
 class CIFARResNet(nn.Module):
     """A residual neural network as originally designed for CIFAR-10."""
@@ -101,3 +102,7 @@ class CIFARResNet(nn.Module):
             out = self.fc(out)
             out = out.view(out.size(0), -1)
             return out
+
+
+CIFARResNet_Subspace = to_subspace_class(CIFARResNet, verbose=False)
+
