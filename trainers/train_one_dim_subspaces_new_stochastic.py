@@ -35,14 +35,18 @@ def train(models, writer, data_loader, optimizers, criterion, epoch):
     train_loader = data_loader.train_loader
 
     for batch_idx, (data, target) in enumerate(train_loader):
-        alpha = np.random.uniform(0, 1)
         data, target = data.to(args.device), target.to(args.device)
+        alpha = np.random.uniform(0, 1)
+        alpha = torch.Tensor([alpha, 1-alpha])
+        setattr(model, 'alpha', alpha)
+        # model.set_alpha(alpha)
+
         optimizer.zero_grad()
         output = model(data)
         #we're doing class 0 vs all
         output = torch.stack((output[:,0], output[:,1:].sum(axis=1)), dim=1)
         target = (~target.to(bool)).to(int)
-        loss = criterion(output, target, torch.tensor([alpha, 1-alpha], device=args.device))
+        loss = criterion(output, target, torch.tensor(alpha, device=args.device))
 
         loss.backward()
 
@@ -80,8 +84,8 @@ def test(models, writer, criterion, data_loader, epoch):
     correct = 0
     val_loader = data_loader.val_loader
 
-    model.apply(lambda m: setattr(m, "alpha", 0.5))
-
+    setattr(model, 'alpha', torch.Tensor([0.5, 0.5]))
+    # model.set_alpha(torch.Tensor([0.5, 0.5]))
     # optionally update the bn during training to, but note this slows down things.
     if args.train_update_bn:
         utils.update_bn(data_loader.train_loader, model, args.device)
@@ -108,11 +112,10 @@ def test(models, writer, criterion, data_loader, epoch):
     print(
         f"\nTest set: Average loss: {test_loss:.4f}, Accuracy: ({test_acc:.4f})\n"
     )
-
     if args.save:
         writer.add_scalar(f"test/loss", test_loss, epoch)
         writer.add_scalar(f"test/acc", test_acc, epoch)
 
-    metrics = {"test/loss": test_loss}
+    metrics = {'test_loss': test_loss, 'test_acc': test_acc}
 
     return test_acc, metrics
