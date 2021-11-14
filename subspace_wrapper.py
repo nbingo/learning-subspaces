@@ -23,7 +23,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.parametrization_points = nn.ParameterList(
                 [nn.Parameter(p.clone()) for p in self.parameters() for _ in range(num_vertices)])
             # We need the key names of these added parameters to properly load state_dict later on
-            self.parametrization_points_keys = self.state_dict().keys() - pre_copy_state_dict
+            self.parametrization_points_keys = list(self.state_dict().keys())[len(pre_copy_state_dict):]
             # Create a map from the names of our copied parameters to the parameters that they came from for easy
             # state_dict loading!
             self.param_point_keys_to_orig_state_keys = {
@@ -34,7 +34,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                 self.orig_parameter_names) == num_vertices, f'The number of original keys is {len(self.orig_parameter_names)}, but the number of copied keys is {len(self.parametrization_points_keys)}, which is not {num_vertices} times the number of original keys. '
 
             # Just start w/ equal weights for everything (i.e., at center of simplex)
-            self.register_buffer('alpha', torch.full((num_vertices,), int(np.sqrt(num_vertices) / num_vertices)))
+            self.register_buffer('alpha', torch.full((num_vertices,), np.sqrt(num_vertices) / num_vertices))
             # Boolean to keep track if we changed alpha and not the parameters of the underlying model yet. Every
             # time alpha is changed we have to update the model parameters to represent the parameters parametrized
             # by that alpha. We don't need to reset parameters if alpha does not change, however, since the changed
@@ -48,21 +48,24 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.alpha_updated = True
 
         def load_state_dict(self, state_dict: 'OrderedDict[str, torch.Tensor]', strict: bool = False) \
-                -> namedtuple('missing_keys', 'unexpected_keys'):
+                -> 'tuple[set, set]':
             incompatible_keys = super().load_state_dict(state_dict=state_dict, strict=strict)
-            if len(incompatible_keys.unexpected_keys > 0):
-                warnings.warn(f'Unexpected keys found while loading: {incompatible_keys.unexpected_keys}',
+            missing_keys = set(incompatible_keys.missing_keys)
+            unexpected_keys = set(incompatible_keys.unexpected_keys)
+            if len(unexpected_keys) > 0:
+                warnings.warn(f'Unexpected keys found while loading: {unexpected_keys}',
                               RuntimeWarning)
-            if len(incompatible_keys.missing_keys) > 0:
+            if len(missing_keys) > 0:
                 if verbose:
                     print(
-                        f'Found {len(incompatible_keys.missing_keys)} missing keys, '
+                        f'Found {len(missing_keys)} missing keys, '
                         f'and assuming that they are copies for the parametrization so will fill up accordingly.')
                 for name, param in self.named_parameters():
-                    incompatible_keys.missing_keys -= name
-                    with torch.no_grad():
-                        param.copy_(state_dict[self.param_point_keys_to_orig_state_keys[name]])
-            return incompatible_keys
+                    if name in missing_keys:
+                        missing_keys -= {name}
+                        with torch.no_grad():
+                            param.copy_(state_dict[self.param_point_keys_to_orig_state_keys[name]])
+            return missing_keys, unexpected_keys
 
         def _set_params_at_alpha(self) -> None:
             if self.verbose:
