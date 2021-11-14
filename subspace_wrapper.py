@@ -8,7 +8,7 @@ import warnings
 
 def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int] = 2,
                       verbose: Optional[bool] = False) -> 'Type[nn.Module]':
-    class subspace_model_class(model_class):
+    class SubspaceModelClass(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.verbose = verbose
@@ -27,8 +27,9 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             # Create a map from the names of our copied parameters to the parameters that they came from for easy
             # state_dict loading!
             self.param_point_keys_to_orig_state_keys = {
-                param_point_key: self.orig_parameter_names[int(torch.floor(i / self.num_vertices))] for
-                i, param_point_key in enumerate(self.parametrization_points_keys)}
+                param_point_key: self.orig_parameter_names[int(torch.floor(i / self.num_vertices))]
+                for i, param_point_key in enumerate(self.parametrization_points_keys)
+            }
             assert len(self.parametrization_points_keys) / len(
                 self.orig_parameter_names) == num_vertices, f'The number of original keys is {len(self.orig_parameter_names)}, but the number of copied keys is {len(self.parametrization_points_keys)}, which is not {num_vertices} times the number of original keys. '
 
@@ -46,8 +47,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.alpha.copy_(alpha)
             self.alpha_updated = True
 
-        def load_state_dict(self, state_dict: 'OrderedDict[str, torch.Tensor]', strict: bool = False) -> namedtuple(
-            'missing_keys', 'unexpected_keys'):
+        def load_state_dict(self, state_dict: 'OrderedDict[str, torch.Tensor]', strict: bool = False) \
+                -> namedtuple('missing_keys', 'unexpected_keys'):
             incompatible_keys = super().load_state_dict(state_dict=state_dict, strict=strict)
             if len(incompatible_keys.unexpected_keys > 0):
                 warnings.warn(f'Unexpected keys found while loading: {incompatible_keys.unexpected_keys}',
@@ -109,4 +110,4 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                 self._set_params_at_alpha()
             return super().forward(*args, **kwargs)
 
-    return subspace_model_class
+    return SubspaceModelClass
