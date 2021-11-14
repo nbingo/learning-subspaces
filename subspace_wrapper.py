@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
-from typing import Type, Optional, Union
+from typing import Type, Optional
 from collections import OrderedDict, namedtuple
 import numpy as np
 import warnings
 
-def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] = 2, verbose: Optional[bool] = False) -> Type[nn.Module]:
+def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int] = 2, verbose: Optional[bool] = False) -> 'Type[nn.Module]':
     class subspace_model_class(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -22,11 +22,11 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
             # We need the key names of these added parameters to properly load state_dict later on
             self.parametrization_points_keys = self.state_dict().keys() - pre_copy_state_dict
             # Create a map from the names of our copied parameters to the parameters that they came from for easy state_dict loading!
-            self.param_point_keys_to_orig_state_keys = {param_point_key: self.orig_parameter_names[np.floor(i / self.num_vertices).astype(int)] for i, param_point_key in enumerate(self.parametrization_points_keys)}
+            self.param_point_keys_to_orig_state_keys = {param_point_key: self.orig_parameter_names[int(torch.floor(i / self.num_vertices))] for i, param_point_key in enumerate(self.parametrization_points_keys)}
             assert len(self.parametrization_points_keys) / len(self.orig_parameter_names) == num_vertices, f'The number of original keys is {len(self.orig_parameter_names)}, but the number of copied keys is {len(self.parametrization_points_keys)}, which is not {num_vertices} times the number of original keys.'
 
             # Just start w/ equal weights for everything (i.e., at center of simplex)
-            self.register_buffer('alpha', torch.ones(torch.sqrt(num_vertices) / num_vertices))
+            self.register_buffer('alpha', torch.full((num_vertices,), int (np.sqrt(num_vertices) / num_vertices)))
             # Boolean to keep track if we changed alpha and not the parameters of the underlying model yet.
             # Every time alpha is changed we have to update the model parameters to represent the parameters parametrized by that alpha.
             # We don't need to reset parameters if alpha does not change, however, since the changed underlying parameters will still track the alpha that they had before.
@@ -38,7 +38,7 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
             self.alpha.copy_(alpha)
             self.alpha_updated = True
         
-        def load_state_dict(self, state_dict: OrderedDict[str, torch.Tensor], strict: bool = False) -> namedtuple('missing_keys', 'unexpected_keys'):
+        def load_state_dict(self, state_dict: 'OrderedDict[str, torch.Tensor]', strict: bool = False) -> namedtuple('missing_keys', 'unexpected_keys'):
             incompatible_keys = super().load_state_dict(state_dict=state_dict, strict=strict)
             if len(incompatible_keys.unexpected_keys > 0):
                 warnings.warn(f'Unexpected keys found while loading: {incompatible_keys.unexpected_keys}', RuntimeWarning)
@@ -66,7 +66,7 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
                 print('Done setting parameters!')
             self.alpha_updated = False
 
-        def state_dict_at_alpha(self, alpha: torch.Tensor) -> dict[str, torch.Tensor]:
+        def state_dict_at_alpha(self, alpha: torch.Tensor) -> 'dict[str, torch.Tensor]':
             # Sets the state dict of the underlying model for the given alpha and then returns just the state dict of the underlying model.
             orig_alpha = self.alpha.clone()
             self.set_alpha(alpha)
@@ -81,7 +81,7 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
             return state_dict
 
         def forward(self, *args, alpha: torch.Tensor = None, **kwargs):
-            if (self.alpha is not None) or (alpha is not None):
+            if (self.alpha is None) and (alpha is None):
                 raise RuntimeError('Alpha must be defined before a forward passs. Call model.set_alpha(<alpha>) or set alpha in the forward pass.')
             if self.alpha_updated and alpha is not None:
                 warnings.warn(RuntimeWarning, 'Passing in new alpha in forward pass along with setting new alpha, so it is unclear which one to use. Please only use model.set_alpha(<alpha>) or set the alpha in the forward pass via a keyword argument. Currently going with the alpha set in the forward pass.')
@@ -89,7 +89,7 @@ def to_subspace_class(model_class: Type[nn.Module], num_vertices: Optional[int] 
                 self.set_alpha(alpha)
             # set the parameters according to alpha
             if self.alpha_updated:
-                self._set_params_at_alpha(self.alpha)
+                self._set_params_at_alpha()
             return super().forward(*args, **kwargs)
 
     return subspace_model_class
