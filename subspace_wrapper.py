@@ -70,8 +70,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
         def _set_params_at_alpha(self) -> None:
             if self.verbose:
                 print('Setting parameters from subspace parametrization...')
-            for i, p in enumerate(self.parameters()):
-                if i >= self.num_base_parameters:
+            for i, name in enumerate(self.orig_parameter_names):
+                if i >= int(self.num_base_parameters):
                     break
                 to_stack = [
                     self.parametrization_points[
@@ -79,7 +79,9 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     self.alpha[j]
                     for j in range(int(self.num_vertices))
                 ]
-                p.copy_(torch.mean(torch.stack(to_stack, dim=0), axis=0))
+                new_p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
+                del_attr(self, name.split("."))
+                set_attr(self, name.split("."), new_p)
             if self.verbose:
                 print('Done setting parameters!')
             self.alpha_updated = False
@@ -114,3 +116,17 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             return super().forward(*args, **kwargs)
 
     return SubspaceModelClass
+
+
+def del_attr(obj, names):
+    if len(names) == 1:
+        delattr(obj, names[0])
+    else:
+        del_attr(getattr(obj, names[0]), names[1:])
+
+
+def set_attr(obj, names, val):
+    if len(names) == 1:
+        setattr(obj, names[0], val)
+    else:
+        set_attr(getattr(obj, names[0]), names[1:], val)
