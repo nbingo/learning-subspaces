@@ -11,6 +11,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
     class SubspaceModelClass(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            # Saving the original keys to make exporting these same keys easy when we want the values of the parameters
+            # of the underlying model at a specific alpha
             self.orig_state_dict_keys = self.state_dict().keys()
             self.verbose = verbose
             # These will be the vertices of our n-simplex
@@ -61,6 +63,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     print(
                         f'Found {len(missing_keys)} missing keys, '
                         f'and assuming that they are copies for the parametrization so will fill up accordingly.')
+                # Go through the parameters and copy values into them according to the original parameter that they
+                # came from if they're a missing key
                 for name, param in self.named_parameters():
                     if name in missing_keys:
                         missing_keys -= {name}
@@ -81,6 +85,10 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     for j in range(int(self.num_vertices))
                 ]
                 new_p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
+                # To set the value of the parameters of the underlying model, we first have to remove them and then
+                # reset them since PyTorch thinks they're a leaf parameter, but in reality in this context they
+                # aren't since we're computing them as a result of our parametrization. So resetting them allows us
+                # to have them as non-leaf parameters.
                 del_attr(self, name.split("."))
                 set_attr(self, name.split("."), nn.Parameter(new_p))
             if self.verbose:
