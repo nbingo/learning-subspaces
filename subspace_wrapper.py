@@ -11,6 +11,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
     class SubspaceModelClass(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            self.orig_state_dict_keys = self.state_dict().keys()
             self.verbose = verbose
             # These will be the vertices of our n-simplex
             self.register_buffer('num_base_parameters', torch.Tensor([len(list(self.parameters()))]))
@@ -81,7 +82,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                 ]
                 new_p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
                 del_attr(self, name.split("."))
-                set_attr(self, name.split("."), new_p)
+                set_attr(self, name.split("."), nn.Parameter(new_p))
             if self.verbose:
                 print('Done setting parameters!')
             self.alpha_updated = False
@@ -94,7 +95,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self._set_params_at_alpha()
             # Get the state_dict of the underlying model
             # THIS RETURNS ALL PARAMETERS! BAD
-            state_dict = super().state_dict()
+            state_dict = self.state_dict()
+            state_dict = OrderedDict([(name, state_dict[name]) for name in self.orig_state_dict_keys])
             # reset our params
             self.set_alpha(orig_alpha)
             self._set_params_at_alpha()
