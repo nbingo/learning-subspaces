@@ -42,7 +42,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.alpha_updated = True
 
         def set_alpha(self, alpha: torch.Tensor) -> None:
-            if alpha.size[0] != self.num_vertices:
+            if alpha.shape[0] != int(self.num_vertices):
                 raise ValueError(f'Alpha must have size of self.num_vertices={self.num_vertices}')
             self.alpha.copy_(alpha)
             self.alpha_updated = True
@@ -79,7 +79,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     self.alpha[j]
                     for j in range(int(self.num_vertices))
                 ]
-                p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
+                p.copy_(torch.mean(torch.stack(to_stack, dim=0), axis=0))
             if self.verbose:
                 print('Done setting parameters!')
             self.alpha_updated = False
@@ -91,7 +91,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.set_alpha(alpha)
             self._set_params_at_alpha()
             # Get the state_dict of the underlying model
-            ## DOES THIS WORK?
+            # THIS RETURNS ALL PARAMETERS! BAD
             state_dict = super().state_dict()
             # reset our params
             self.set_alpha(orig_alpha)
