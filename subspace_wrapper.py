@@ -11,6 +11,9 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
     class SubspaceModelClass(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            # Saving the original keys to make exporting these same keys easy when we want the values of the parameters
+            # of the underlying model at a specific alpha
+            self.orig_state_dict_keys = self.state_dict().keys()
             self.verbose = verbose
             # These will be the vertices of our n-simplex
             self.register_buffer('num_base_parameters', torch.Tensor([len(list(self.parameters()))]))
@@ -42,7 +45,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.alpha_updated = True
 
         def set_alpha(self, alpha: torch.Tensor) -> None:
-            if alpha.size[0] != self.num_vertices:
+            if alpha.shape[0] != int(self.num_vertices):
                 raise ValueError(f'Alpha must have size of self.num_vertices={self.num_vertices}')
             self.alpha.copy_(alpha)
             self.alpha_updated = True
@@ -60,6 +63,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     print(
                         f'Found {len(missing_keys)} missing keys, '
                         f'and assuming that they are copies for the parametrization so will fill up accordingly.')
+                # Go through the parameters and copy values into them according to the original parameter that they
+                # came from if they're a missing key
                 for name, param in self.named_parameters():
                     if name in missing_keys:
                         missing_keys -= {name}
@@ -70,8 +75,8 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
         def _set_params_at_alpha(self) -> None:
             if self.verbose:
                 print('Setting parameters from subspace parametrization...')
-            for i, p in enumerate(self.parameters()):
-                if i >= self.num_base_parameters:
+            for i, name in enumerate(self.orig_parameter_names):
+                if i >= int(self.num_base_parameters):
                     break
                 to_stack = [
                     self.parametrization_points[
@@ -79,7 +84,13 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                     self.alpha[j]
                     for j in range(int(self.num_vertices))
                 ]
-                p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
+                new_p = torch.mean(torch.stack(to_stack, dim=0), axis=0)
+                # To set the value of the parameters of the underlying model, we first have to remove them and then
+                # reset them since PyTorch thinks they're a leaf parameter, but in reality in this context they
+                # aren't since we're computing them as a result of our parametrization. So resetting them allows us
+                # to have them as non-leaf parameters.
+                del_attr(self, name.split("."))
+                set_attr(self, name.split("."), nn.Parameter(new_p))
             if self.verbose:
                 print('Done setting parameters!')
             self.alpha_updated = False
@@ -91,8 +102,9 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             self.set_alpha(alpha)
             self._set_params_at_alpha()
             # Get the state_dict of the underlying model
-            ## DOES THIS WORK?
-            state_dict = super().state_dict()
+            # THIS RETURNS ALL PARAMETERS! BAD
+            state_dict = self.state_dict()
+            state_dict = OrderedDict([(name, state_dict[name]) for name in self.orig_state_dict_keys])
             # reset our params
             self.set_alpha(orig_alpha)
             self._set_params_at_alpha()
@@ -114,3 +126,17 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             return super().forward(*args, **kwargs)
 
     return SubspaceModelClass
+
+
+def del_attr(obj, names):
+    if len(names) == 1:
+        delattr(obj, names[0])
+    else:
+        del_attr(getattr(obj, names[0]), names[1:])
+
+
+def set_attr(obj, names, val):
+    if len(names) == 1:
+        setattr(obj, names[0], val)
+    else:
+        set_attr(getattr(obj, names[0]), names[1:], val)
