@@ -13,9 +13,10 @@ ln = nn.Linear(5, 5)
 
 incompatible_keys = ls.load_state_dict(ln.state_dict())
 
+device = 'cuda:1'
 SubResNet = to_subspace_class(models.ResNet, verbose=True)
-sub_resnet18 = SubResNet(models.resnet.BasicBlock, [2, 2, 2, 2])
-resnet18 = models.resnet18()
+sub_resnet18 = SubResNet(models.resnet.BasicBlock, [2, 2, 2, 2]).to(device)
+resnet18 = models.resnet18().to(device)
 
 incompatible_keys = sub_resnet18.load_state_dict(resnet18.state_dict())
 
