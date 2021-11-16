@@ -36,7 +36,7 @@ if __name__ == "__main__":
         args.update_bn = True
         args.criterion = F.cross_entropy
         
-        for epochs in [160, 160 * 2]:
+        for epochs in [160]:
             for optimizer in ['sgd']:
                 for lr in [0.1]:
                     args.epochs = epochs
