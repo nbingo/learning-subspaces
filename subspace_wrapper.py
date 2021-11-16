@@ -89,7 +89,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
                 # aren't since we're computing them as a result of our parametrization. So resetting them allows us
                 # to have them as non-leaf parameters.
                 del_attr(self, name.split("."))
-                set_attr(self, name.split("."), nn.Parameter(new_p))
+                set_attr(self, name.split("."), new_p)
             if self.verbose:
                 print('Done setting parameters!')
             self.alpha_updated = False
