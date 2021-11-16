@@ -56,7 +56,8 @@ if __name__ == "__main__":
                     args.save_iters = []
 
                     # TODO: change these paths -- this is an example.
-                    args.data = "/lfs/local/0/nomir/learning-subspaces/data"
+                    # args.data = "/lfs/local/0/nomir/learning-subspaces/data"
+                    args.data = 'dfs/scratch0/nomir/data'
                     args.log_dir = (
                         "/lfs/local/0/nomir/learning-subspaces/learning-subspaces-results/cifar/one-dimensional-subspaces"
                     )
