@@ -36,7 +36,7 @@ if __name__ == "__main__":
         args.update_bn = True
         args.criterion = F.cross_entropy
         
-        for epochs in [160, 160 * 2]:
+        for epochs in [160]:
             for optimizer in ['sgd']:
                 for lr in [0.1]:
                     args.epochs = epochs
@@ -56,7 +56,8 @@ if __name__ == "__main__":
                     args.save_iters = []
 
                     # TODO: change these paths -- this is an example.
-                    args.data = "/lfs/local/0/nomir/learning-subspaces/data"
+                    # args.data = "/lfs/local/0/nomir/learning-subspaces/data"
+                    args.data = 'dfs/scratch0/nomir/data'
                     args.log_dir = (
                         "/lfs/local/0/nomir/learning-subspaces/learning-subspaces-results/cifar/one-dimensional-subspaces"
                     )
