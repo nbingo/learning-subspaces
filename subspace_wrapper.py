@@ -56,8 +56,7 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
             missing_keys = set(incompatible_keys.missing_keys)
             unexpected_keys = set(incompatible_keys.unexpected_keys)
             if len(unexpected_keys) > 0:
-                warnings.warn(f'Unexpected keys found while loading: {unexpected_keys}',
-                              RuntimeWarning)
+                warnings.warn(f'Unexpected keys found while loading: {unexpected_keys}', RuntimeWarning)
             if len(missing_keys) > 0:
                 if verbose:
                     print(
@@ -113,11 +112,13 @@ def to_subspace_class(model_class: 'Type[nn.Module]', num_vertices: Optional[int
 
         def forward(self, *args, alpha: torch.Tensor = None, **kwargs):
             if (self.alpha is None) and (alpha is None):
-                raise RuntimeError(
-                    'Alpha must be defined before a forward passs. Call model.set_alpha(<alpha>) or set alpha in the forward pass.')
+                raise RuntimeError('Alpha must be defined before a forward passs. '
+                                   'Call model.set_alpha(<alpha>) or set alpha in the forward pass.')
             if self.alpha_updated and alpha is not None:
-                warnings.warn(RuntimeWarning,
-                              'Passing in new alpha in forward pass along with setting new alpha, so it is unclear which one to use. Please only use model.set_alpha(<alpha>) or set the alpha in the forward pass via a keyword argument. Currently going with the alpha set in the forward pass.')
+                warnings.warn('Passing in new alpha in forward pass along with setting new alpha, so it is unclear '
+                              'which one to use. Please only use model.set_alpha(<alpha>) or set the alpha in the '
+                              'forward pass via a keyword argument. Currently going with the alpha set in the '
+                              'forward pass.', RuntimeWarning)
             if alpha is not None:
                 self.set_alpha(alpha)
             # set the parameters according to alpha
