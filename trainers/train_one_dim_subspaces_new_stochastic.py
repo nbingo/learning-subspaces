@@ -37,7 +37,7 @@ def train(models, writer, data_loader, optimizers, criterion, epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(args.device), target.to(args.device)
         alpha = np.random.uniform(0, 1)
-        alpha = torch.Tensor([alpha, 1-alpha])
+        alpha = torch.Tensor([alpha, 1-alpha], device=args.device)
         # model.set_alpha(alpha)
 
         optimizer.zero_grad()
@@ -45,7 +45,7 @@ def train(models, writer, data_loader, optimizers, criterion, epoch):
         #we're doing class 0 vs all
         output = torch.stack((output[:,0], output[:,1:].sum(axis=1)), dim=1)
         target = (~target.to(bool)).to(int)
-        loss = criterion(output, target, torch.tensor(alpha, device=args.device))
+        loss = criterion(output, target, alpha)
 
         loss.backward()
 
